@@ -211,11 +211,7 @@
     </div>
 
     <div class="controls">
-        <button id="refreshBtn" class="btn">刷新目录</button>
-        <div class="auto-refresh">
-            <input type="checkbox" id="autoRefresh">
-            <label for="autoRefresh">自动刷新（每10秒）</label>
-        </div>
+        <button id="updateStructureBtn" class="btn">更新项目结构</button>
     </div>
 
     <div id="status" class="status" style="display: none;"></div>
@@ -263,29 +259,86 @@
             }
 
             init() {
-                this.refreshBtn.addEventListener('click', () => this.refreshDirectory());
-                this.autoRefreshCheckbox.addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        this.startAutoRefresh();
-                    } else {
-                        this.stopAutoRefresh();
-                    }
-                });
+                this.updateStructureBtn = document.getElementById('updateStructureBtn');
+                this.updateStructureBtn.addEventListener('click', () => this.updateProjectStructure());
 
-                // 初始加载
-                this.loadDirectoryStructure();
+                // 尝试多种方式加载数据
+                this.loadDataFromMultipleSources();
             }
 
-            async refreshDirectory() {
-                try {
-                    this.showStatus('正在刷新目录结构...', 'warning');
+            async loadDataFromMultipleSources() {
+                // 1. 尝试从URL参数加载
+                if (this.loadFromUrlParams()) {
+                    console.log('从URL参数加载数据成功');
                     await this.loadDirectoryStructure();
-                    this.showStatus('目录结构已更新', 'success');
-                } catch (error) {
-                    console.error('刷新目录失败:', error);
-                    this.showStatus('刷新目录失败: ' + error.message, 'error');
+                    return;
                 }
+
+                // 2. 尝试从localStorage加载
+                if (this.loadFromLocalStorage()) {
+                    console.log('从localStorage加载数据成功');
+                    await this.loadDirectoryStructure();
+                    return;
+                }
+
+                // 3. 尝试从外部JSON文件加载
+                if (await this.loadFromExternalFile()) {
+                    console.log('从外部文件加载数据成功');
+                    await this.loadDirectoryStructure();
+                    return;
+                }
+
+                // 4. 使用默认数据
+                console.log('使用默认数据');
+                await this.loadDirectoryStructure();
             }
+
+            loadFromUrlParams() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const structureData = urlParams.get('structure');
+                
+                if (structureData) {
+                    try {
+                        const data = JSON.parse(decodeURIComponent(structureData));
+                        this.projectData = data;
+                        return true;
+                    } catch (error) {
+                        console.error('解析URL参数失败:', error);
+                    }
+                }
+                return false;
+            }
+
+            loadFromLocalStorage() {
+                const savedData = localStorage.getItem('projectStructure');
+                if (savedData) {
+                    try {
+                        this.projectData = JSON.parse(savedData);
+                        return true;
+                    } catch (error) {
+                        console.error('解析localStorage数据失败:', error);
+                        localStorage.removeItem('projectStructure');
+                    }
+                }
+                return false;
+            }
+
+            async loadFromExternalFile() {
+                try {
+                    // 尝试加载项目结构文件
+                    const response = await fetch('./project-structure.json');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.projectData = data;
+                        return true;
+                    }
+                } catch (error) {
+                    console.log('外部文件不可用:', error);
+                }
+                return false;
+            }
+
+
 
             async loadDirectoryStructure() {
                 try {
@@ -301,57 +354,303 @@
             }
 
             async scanDirectory(path) {
-                // 使用静态的项目结构数据
+                // 使用动态项目数据，支持多种更新方式
                 return this.getProjectStructure(path);
             }
 
-            getProjectStructure(path) {
-                // 完整的项目结构数据
-                const projectData = {
-                    '.': [
-                        { name: '1.0.1', type: 'folder', path: '1.0.1' },
-                        { name: 'index.html', type: 'file', path: 'index.html' },
-                        { name: 'README.md', type: 'file', path: 'README.md' }
-                    ],
-                    '1.0.1': [
-                        { name: 'assets', type: 'folder', path: '1.0.1/assets' },
-                        { name: 'project.manifest', type: 'file', path: '1.0.1/project.manifest' },
-                        { name: 'version.manifest', type: 'file', path: '1.0.1/version.manifest' }
-                    ],
-                    '1.0.1/assets': [
-                        { name: 'assets', type: 'folder', path: '1.0.1/assets/assets' },
-                        { name: 'src', type: 'folder', path: '1.0.1/assets/src' },
-                        { name: 'jsb-adapter', type: 'folder', path: '1.0.1/assets/jsb-adapter' },
-                        { name: 'application.js', type: 'file', path: '1.0.1/assets/application.js' },
-                        { name: 'main.js', type: 'file', path: '1.0.1/assets/main.js' }
-                    ],
-                    '1.0.1/assets/assets': [
-                        { name: 'bundle-beyond', type: 'folder', path: '1.0.1/assets/assets/bundle-beyond' },
-                        { name: 'bundle-sg', type: 'folder', path: '1.0.1/assets/assets/bundle-sg' },
-                        { name: 'internal', type: 'folder', path: '1.0.1/assets/assets/internal' },
-                        { name: 'main', type: 'folder', path: '1.0.1/assets/assets/main' },
-                        { name: 'resources', type: 'folder', path: '1.0.1/assets/assets/resources' }
-                    ],
-                    '1.0.1/assets/src': [
-                        { name: 'assets', type: 'folder', path: '1.0.1/assets/src/assets' },
-                        { name: 'chunks', type: 'folder', path: '1.0.1/assets/src/chunks' },
-                        { name: 'cocos-js', type: 'folder', path: '1.0.1/assets/src/cocos-js' },
-                        { name: 'effect.bin', type: 'file', path: '1.0.1/assets/src/effect.bin' },
-                        { name: 'import-map.json', type: 'file', path: '1.0.1/assets/src/import-map.json' },
-                        { name: 'settings.json', type: 'file', path: '1.0.1/assets/src/settings.json' },
-                        { name: 'system.bundle.js', type: 'file', path: '1.0.1/assets/src/system.bundle.js' }
-                    ],
-                    '1.0.1/assets/jsb-adapter': [
-                        { name: 'engine-adapter.js', type: 'file', path: '1.0.1/assets/jsb-adapter/engine-adapter.js' },
-                        { name: 'web-adapter.js', type: 'file', path: '1.0.1/assets/jsb-adapter/web-adapter.js' }
-                    ]
+            async updateProjectStructure() {
+                try {
+                    this.showStatus('正在扫描项目结构...', 'warning');
+                    
+                    // 检查是否在本地环境
+                    const isLocalFile = window.location.protocol === 'file:';
+                    
+                    if (isLocalFile && 'showDirectoryPicker' in window) {
+                        // 本地文件环境，可以使用 File System Access API
+                        const dirHandle = await window.showDirectoryPicker({
+                            mode: 'read'
+                        });
+                        
+                        // 扫描选中的目录
+                        const newStructure = await this.scanRealDirectory(dirHandle);
+                        this.updateProjectData(newStructure);
+                        
+                        this.showStatus('项目结构已更新', 'success');
+                        await this.loadDirectoryStructure();
+                    } else {
+                        // 服务器环境或浏览器不支持，显示编辑对话框
+                        this.showEditStructureDialog();
+                    }
+                } catch (error) {
+                    console.error('更新项目结构失败:', error);
+                    if (error.name === 'AbortError') {
+                        this.showStatus('用户取消了目录选择', 'warning');
+                    } else {
+                        this.showStatus('更新项目结构失败: ' + error.message, 'error');
+                    }
+                }
+            }
+
+            async scanRealDirectory(dirHandle, path = '') {
+                const structure = {
+                    name: dirHandle.name,
+                    type: 'folder',
+                    path: path || dirHandle.name,
+                    children: []
                 };
+
+                try {
+                    for await (const entry of dirHandle.values()) {
+                        // 跳过隐藏文件和系统文件
+                        if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+                            continue;
+                        }
+
+                        if (entry.kind === 'directory') {
+                            const childStructure = await this.scanRealDirectory(entry, path ? `${path}/${entry.name}` : entry.name);
+                            structure.children.push(childStructure);
+                        } else {
+                            structure.children.push({
+                                name: entry.name,
+                                type: 'file',
+                                path: path ? `${path}/${entry.name}` : entry.name
+                            });
+                        }
+                    }
+
+                    // 按类型和名称排序
+                    structure.children.sort((a, b) => {
+                        if (a.type !== b.type) {
+                            return a.type === 'folder' ? -1 : 1;
+                        }
+                        return a.name.localeCompare(b.name);
+                    });
+                } catch (error) {
+                    console.error(`扫描目录 ${path} 失败:`, error);
+                }
+
+                return structure;
+            }
+
+            updateProjectData(newStructure) {
+                // 将扫描到的结构转换为项目数据格式
+                const projectData = {};
+                
+                const processNode = (node, parentPath = '') => {
+                    const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+                    
+                    if (node.children && node.children.length > 0) {
+                        projectData[currentPath] = node.children.map(child => ({
+                            name: child.name,
+                            type: child.type,
+                            path: child.path
+                        }));
+                        
+                        // 递归处理子目录
+                        node.children.forEach(child => {
+                            if (child.type === 'folder') {
+                                processNode(child, currentPath);
+                            }
+                        });
+                    }
+                };
+                
+                processNode(newStructure);
+                
+                // 更新静态数据
+                this.projectData = projectData;
+                console.log('更新后的项目数据:', projectData);
+            }
+
+            showEditStructureDialog() {
+                const dialog = document.createElement('div');
+                dialog.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                `;
+                
+                // 获取当前项目结构数据
+                const currentData = this.projectData || {};
+                const jsonData = JSON.stringify(currentData, null, 2);
+                
+                dialog.innerHTML = `
+                    <div style="
+                        background: white;
+                        padding: 30px;
+                        border-radius: 8px;
+                        max-width: 800px;
+                        width: 95%;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                    ">
+                        <h3>编辑项目结构</h3>
+                        <p>请在下方编辑项目结构数据，然后点击"应用更改"：</p>
+                        
+                        <div style="margin: 20px 0;">
+                            <label for="structureEditor" style="display: block; margin-bottom: 10px; font-weight: bold;">
+                                项目结构数据 (JSON格式):
+                            </label>
+                            <textarea id="structureEditor" style="
+                                width: 100%;
+                                height: 400px;
+                                font-family: 'Courier New', monospace;
+                                font-size: 12px;
+                                padding: 10px;
+                                border: 1px solid #ccc;
+                                border-radius: 4px;
+                                resize: vertical;
+                            ">${jsonData}</textarea>
+                        </div>
+                        
+                        <div style="margin: 20px 0;">
+                            <h4>数据格式说明：</h4>
+                            <ul style="font-size: 14px; line-height: 1.5;">
+                                <li><code>"路径"</code>: 目录路径，如 <code>"1.0.1"</code> 或 <code>"1.0.1/assets"</code></li>
+                                <li><code>name</code>: 文件或文件夹名称</li>
+                                <li><code>type</code>: <code>"folder"</code> 表示文件夹，<code>"file"</code> 表示文件</li>
+                                <li><code>path</code>: 完整路径</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button id="applyChanges" class="btn" style="margin-right: 10px;">应用更改</button>
+                            <button id="exportData" class="btn" style="background-color: #4caf50; margin-right: 10px;">导出数据</button>
+                            <button id="importData" class="btn" style="background-color: #ff9800; margin-right: 10px;">导入数据</button>
+                            <button id="cancelEdit" class="btn" style="background-color: #666;">取消</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(dialog);
+                
+                // 绑定事件
+                document.getElementById('applyChanges').addEventListener('click', () => {
+                    try {
+                        const editor = document.getElementById('structureEditor');
+                        const newData = JSON.parse(editor.value);
+                        
+                        // 验证数据结构
+                        if (typeof newData === 'object' && newData !== null) {
+                            this.projectData = newData;
+                            
+                            // 保存到localStorage
+                            localStorage.setItem('projectStructure', JSON.stringify(newData));
+                            
+                            this.showStatus('项目结构已更新并保存', 'success');
+                            this.loadDirectoryStructure();
+                            dialog.remove();
+                        } else {
+                            alert('无效的JSON数据格式');
+                        }
+                    } catch (error) {
+                        alert('JSON格式错误: ' + error.message);
+                    }
+                });
+                
+                document.getElementById('exportData').addEventListener('click', () => {
+                    const editor = document.getElementById('structureEditor');
+                    const data = editor.value;
+                    
+                    // 创建下载链接
+                    const blob = new Blob([data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'project-structure.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    this.showStatus('项目结构数据已导出', 'success');
+                });
+                
+                document.getElementById('importData').addEventListener('click', () => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.json';
+                    input.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                try {
+                                    const data = JSON.parse(e.target.result);
+                                    const editor = document.getElementById('structureEditor');
+                                    editor.value = JSON.stringify(data, null, 2);
+                                    this.showStatus('项目结构数据已导入', 'success');
+                                } catch (error) {
+                                    alert('导入失败: ' + error.message);
+                                }
+                            };
+                            reader.readAsText(file);
+                        }
+                    };
+                    input.click();
+                });
+                
+                document.getElementById('cancelEdit').addEventListener('click', () => {
+                    dialog.remove();
+                });
+            }
+
+            getProjectStructure(path) {
+                // 使用动态项目数据，如果没有则使用默认数据
+                if (!this.projectData) {
+                    this.projectData = {
+                        '.': [
+                            { name: '1.0.1', type: 'folder', path: '1.0.1' },
+                            { name: 'index.html', type: 'file', path: 'index.html' },
+                            { name: 'README.md', type: 'file', path: 'README.md' }
+                        ],
+                        '1.0.1': [
+                            { name: 'assets', type: 'folder', path: '1.0.1/assets' },
+                            { name: 'project.manifest', type: 'file', path: '1.0.1/project.manifest' },
+                            { name: 'version.manifest', type: 'file', path: '1.0.1/version.manifest' }
+                        ],
+                        '1.0.1/assets': [
+                            { name: 'assets', type: 'folder', path: '1.0.1/assets/assets' },
+                            { name: 'src', type: 'folder', path: '1.0.1/assets/src' },
+                            { name: 'jsb-adapter', type: 'folder', path: '1.0.1/assets/jsb-adapter' },
+                            { name: 'application.js', type: 'file', path: '1.0.1/assets/application.js' },
+                            { name: 'main.js', type: 'file', path: '1.0.1/assets/main.js' }
+                        ],
+                        '1.0.1/assets/assets': [
+                            { name: 'bundle-beyond', type: 'folder', path: '1.0.1/assets/assets/bundle-beyond' },
+                            { name: 'bundle-sg', type: 'folder', path: '1.0.1/assets/assets/bundle-sg' },
+                            { name: 'internal', type: 'folder', path: '1.0.1/assets/assets/internal' },
+                            { name: 'main', type: 'folder', path: '1.0.1/assets/assets/main' },
+                            { name: 'resources', type: 'folder', path: '1.0.1/assets/assets/resources' }
+                        ],
+                        '1.0.1/assets/src': [
+                            { name: 'assets', type: 'folder', path: '1.0.1/assets/src/assets' },
+                            { name: 'chunks', type: 'folder', path: '1.0.1/assets/src/chunks' },
+                            { name: 'cocos-js', type: 'folder', path: '1.0.1/assets/src/cocos-js' },
+                            { name: 'effect.bin', type: 'file', path: '1.0.1/assets/src/effect.bin' },
+                            { name: 'import-map.json', type: 'file', path: '1.0.1/assets/src/import-map.json' },
+                            { name: 'settings.json', type: 'file', path: '1.0.1/assets/src/settings.json' },
+                            { name: 'system.bundle.js', type: 'file', path: '1.0.1/assets/src/system.bundle.js' }
+                        ],
+                        '1.0.1/assets/jsb-adapter': [
+                            { name: 'engine-adapter.js', type: 'file', path: '1.0.1/assets/jsb-adapter/engine-adapter.js' },
+                            { name: 'web-adapter.js', type: 'file', path: '1.0.1/assets/jsb-adapter/web-adapter.js' }
+                        ]
+                    };
+                }
 
                 return {
                     name: path === '.' ? '项目根目录' : path.split('/').pop(),
                     type: 'folder',
                     path: path,
-                    children: projectData[path] || []
+                    children: this.projectData[path] || []
                 };
             }
 
@@ -478,7 +777,7 @@
             }
 
             async fetchFileContent(filePath) {
-                // 使用静态的文件内容数据
+                // 使用动态文件内容数据
                 return this.getFileContent(filePath);
             }
 
@@ -690,30 +989,7 @@ export default WebAdapter;`,
                 }
             }
 
-            startAutoRefresh() {
-                this.autoRefreshInterval = setInterval(async () => {
-                    try {
-                        const structure = await this.scanDirectory('.');
-                        const currentStructure = JSON.stringify(structure);
-                        
-                        // 检查是否有变化
-                        if (this.lastStructure !== currentStructure) {
-                            this.lastStructure = currentStructure;
-                            this.renderFileTree(structure);
-                            this.showStatus('检测到文件变化，已自动更新', 'success');
-                        }
-                    } catch (error) {
-                        console.error('自动刷新失败:', error);
-                    }
-                }, 10000); // 每10秒检查一次
-            }
 
-            stopAutoRefresh() {
-                if (this.autoRefreshInterval) {
-                    clearInterval(this.autoRefreshInterval);
-                    this.autoRefreshInterval = null;
-                }
-            }
         }
 
         // 初始化文件浏览器
