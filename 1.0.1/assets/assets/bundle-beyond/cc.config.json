@@ -1,0 +1,54 @@
+{
+    "importBase": "import",
+    "nativeBase": "native",
+    "name": "bundle-beyond",
+    "deps": [
+        "resources"
+    ],
+    "uuids": [
+        "098079b20",
+        "20835ba4-6145-4fbc-a58a-051ce700aa3e@f9941",
+        "544e49d6-3f05-4fa8-9a9e-091f98fc2ce8@f9941",
+        "8553812f-242b-42ca-b7d2-3e2366a3202e",
+        "951249e0-9f16-456d-8b85-a6ca954da16b@f9941",
+        "afc47931-f066-46b0-90be-9fe61f213428@f9941",
+        "b730527c-3233-41c2-aaf7-7cdab58f9749",
+        "b730527c-3233-41c2-aaf7-7cdab58f9749@6c48a",
+        "b730527c-3233-41c2-aaf7-7cdab58f9749@f9941",
+        "ffb88a8f-af62-48f4-8f1d-3cb606443a43@f9941"
+    ],
+    "paths": {
+        "8553812f-242b-42ca-b7d2-3e2366a3202e": [
+            "prefab/beyond-ctrl-panel",
+            "cc.Prefab",
+            1
+        ]
+    },
+    "scenes": {},
+    "packs": {
+        "098079b20": [
+            "8553812f-242b-42ca-b7d2-3e2366a3202e",
+            "b730527c-3233-41c2-aaf7-7cdab58f9749@f9941"
+        ]
+    },
+    "versions": {
+        "import": [],
+        "native": []
+    },
+    "redirect": [
+        "20835ba4-6145-4fbc-a58a-051ce700aa3e@f9941",
+        "0",
+        "544e49d6-3f05-4fa8-9a9e-091f98fc2ce8@f9941",
+        "0",
+        "951249e0-9f16-456d-8b85-a6ca954da16b@f9941",
+        "0",
+        "afc47931-f066-46b0-90be-9fe61f213428@f9941",
+        "0",
+        "ffb88a8f-af62-48f4-8f1d-3cb606443a43@f9941",
+        "0"
+    ],
+    "debug": true,
+    "extensionMap": {},
+    "hasPreloadScript": true,
+    "dependencyRelationships": {}
+}

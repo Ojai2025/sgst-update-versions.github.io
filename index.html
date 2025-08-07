@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目文件浏览器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .file-tree {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .file-preview {
+            flex: 2;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .file-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .file-item:hover {
+            background-color: #f0f0f0;
+        }
+        .file-item.selected {
+            background-color: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+        .folder {
+            font-weight: bold;
+            color: #ff9800;
+        }
+        .file {
+            color: #333;
+        }
+        .file-icon {
+            width: 16px;
+            height: 16px;
+        }
+        .preview-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .preview-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .no-file-selected {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>项目文件浏览器</h1>
+        <p>点击文件查看内容预览</p>
+    </div>
+    
+    <div class="main-container">
+        <div class="file-tree">
+            <h3>目录结构</h3>
+            <div id="fileTree"></div>
+        </div>
+        
+        <div class="file-preview">
+            <div class="preview-header">
+                <h3>文件预览</h3>
+                <div id="currentFile">未选择文件</div>
+            </div>
+            <div id="previewContent">
+                <div class="no-file-selected">请选择一个文件进行预览</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 项目文件结构数据
+        const projectStructure = {
+            name: "sgst-update-versions",
+            type: "folder",
+            children: [
+                {
+                    name: "1.0.1",
+                    type: "folder",
+                    children: [
+                        { name: "assets.zip", type: "file" },
+                        { name: "project.manifest", type: "file" },
+                        { name: "version.manifest", type: "file" }
+                    ]
+                },
+                { name: "index.html", type: "file" }
+            ]
+        };
+
+        // 文件内容预览数据
+        const fileContents = {
+            "index.html": `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目文件浏览器</title>
+    <!-- 这里是完整的HTML内容 -->
+</head>
+<body>
+    <!-- 页面内容 -->
+</body>
+</html>`,
+            "project.manifest": `{
+  "packageUrl": "http://localhost:8080/1.0.1/",
+  "remoteManifestUrl": "http://localhost:8080/1.0.1/project.manifest",
+  "remoteVersionUrl": "http://localhost:8080/1.0.1/version.manifest",
+  "version": "1.0.1",
+  "assets": {
+    "assets/scripts/main.js": {
+      "hash": "abc123def456",
+      "compressed": true
+    }
+  }
+}`,
+            "version.manifest": `{
+  "packageUrl": "http://localhost:8080/1.0.1/",
+  "remoteManifestUrl": "http://localhost:8080/1.0.1/project.manifest",
+  "remoteVersionUrl": "http://localhost:8080/1.0.1/version.manifest",
+  "version": "1.0.1"
+}`,
+            "assets.zip": "二进制文件 - 无法预览"
+        };
+
+        function renderFileTree(node, parentElement, level = 0) {
+            const item = document.createElement('div');
+            item.className = `file-item ${node.type}`;
+            item.style.paddingLeft = `${level * 20 + 12}px`;
+            
+            const icon = document.createElement('span');
+            icon.className = 'file-icon';
+            icon.textContent = node.type === 'folder' ? '📁' : '📄';
+            
+            const name = document.createElement('span');
+            name.textContent = node.name;
+            
+            item.appendChild(icon);
+            item.appendChild(name);
+            
+            if (node.type === 'file') {
+                item.addEventListener('click', () => {
+                    // 移除之前的选中状态
+                    document.querySelectorAll('.file-item').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    item.classList.add('selected');
+                    
+                    // 显示文件内容
+                    showFileContent(node.name);
+                });
+            }
+            
+            parentElement.appendChild(item);
+            
+            if (node.children) {
+                node.children.forEach(child => {
+                    renderFileTree(child, parentElement, level + 1);
+                });
+            }
+        }
+
+        function showFileContent(fileName) {
+            const currentFileElement = document.getElementById('currentFile');
+            const previewContentElement = document.getElementById('previewContent');
+            
+            currentFileElement.textContent = `当前文件: ${fileName}`;
+            
+            const content = fileContents[fileName];
+            if (content) {
+                previewContentElement.innerHTML = `<div class="preview-content">${escapeHtml(content)}</div>`;
+            } else {
+                previewContentElement.innerHTML = '<div class="no-file-selected">文件内容不可用</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileTreeElement = document.getElementById('fileTree');
+            renderFileTree(projectStructure, fileTreeElement);
+        });
+    </script>
+</body>
+</html> 
